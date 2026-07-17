@@ -3,6 +3,12 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Импорт AI системы
+const responseGenerator = require('./ai/responses');
+const contextManager = require('./ai/contextManager');
+const filter = require('./ai/filter');
+const toggle = require('./commands/ai/toggle');
+
 // Создание клиента с нужными интентами
 const client = new Client({
     intents: [
@@ -189,23 +195,11 @@ client.once('ready', async () => {
     await registerCommands(commands);
 });
 
+// Экспорт для использования в других файлах
+module.exports = { client };
+
 // Запуск бота
 client.login(process.env.DISCORD_TOKEN).catch(error => {
     console.error('❌ Ошибка входа в бота:', error);
     process.exit(1);
 });
-
-const express = require('express');
-const app = express();
-const port = process.env.PORT || 10000;
-
-// Простой эндпоинт для проверки
-app.get('/', (req, res) => {
-    res.send('Bot is running!');
-});
-
-app.listen(port, () => {
-    console.log(`✅ Веб-сервер для пинга запущен на порту ${port}`);
-});
-
-module.exports = { client };
