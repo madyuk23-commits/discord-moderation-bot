@@ -3,13 +3,7 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// Импорт AI системы
-const responseGenerator = require('./ai/responses');
-const contextManager = require('./ai/contextManager');
-const filter = require('./ai/filter');
-const toggle = require('./commands/ai/toggle');
-
-// Создание клиента с нужными интентами
+// Создание клиента
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -23,7 +17,7 @@ const client = new Client({
     ]
 });
 
-// Коллекции для слэш-команд
+// Коллекции для команд
 client.commands = new Collection();
 client.isReady = false;
 
@@ -50,7 +44,7 @@ const loadCommands = () => {
                 if (command.data) {
                     client.commands.set(command.data.name, command);
                     commands.push(command.data.toJSON());
-                    console.log(`✅ Загружена слэш-команда: /${command.data.name}`);
+                    console.log(`✅ Загружена команда: /${command.data.name}`);
                 }
             } catch (error) {
                 console.error(`❌ Ошибка загрузки команды ${file}:`, error);
@@ -58,14 +52,14 @@ const loadCommands = () => {
         }
     }
     
-    console.log(`✅ Загружено ${commands.length} слэш-команд`);
+    console.log(`✅ Загружено ${commands.length} команд`);
     return commands;
 };
 
 // Регистрация слэш-команд
 const registerCommands = async (commands) => {
     if (!process.env.CLIENT_ID || !process.env.GUILD_ID) {
-        console.warn('⚠️ CLIENT_ID или GUILD_ID не указаны в .env');
+        console.warn('⚠️ CLIENT_ID или GUILD_ID не указаны');
         return;
     }
 
@@ -77,13 +71,13 @@ const registerCommands = async (commands) => {
             Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
             { body: commands }
         );
-        console.log(`✅ Зарегистрировано ${commands.length} слэш-команд для гильдии ${process.env.GUILD_ID}`);
+        console.log(`✅ Зарегистрировано ${commands.length} команд`);
     } catch (error) {
-        console.error('❌ Ошибка регистрации слэш-команд:', error);
+        console.error('❌ Ошибка регистрации команд:', error);
     }
 };
 
-// Функция загрузки событий
+// Загрузка событий
 const loadEvents = () => {
     const eventsPath = path.join(__dirname, 'events');
     if (!fs.existsSync(eventsPath)) {
@@ -108,7 +102,7 @@ const loadEvents = () => {
     }
 };
 
-// Обработка слэш-команд
+// Обработка команд
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
     
@@ -116,18 +110,18 @@ client.on('interactionCreate', async interaction => {
     if (!command) {
         return interaction.reply({
             content: '❌ Команда не найдена!',
-            ephemeral: true
+            flags: 64
         });
     }
     
     try {
         await command.execute(interaction, client);
     } catch (error) {
-        console.error(`❌ Ошибка выполнения слэш-команды /${interaction.commandName}:`, error);
+        console.error(`❌ Ошибка выполнения команды /${interaction.commandName}:`, error);
         
         const errorMessage = {
-            content: '❌ Произошла ошибка при выполнении команды!\nПожалуйста, попробуйте позже или сообщите администратору.',
-            ephemeral: true
+            content: '❌ Произошла ошибка при выполнении команды!',
+            flags: 64
         };
         
         if (interaction.replied || interaction.deferred) {
@@ -138,39 +132,32 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// Функция логирования модерации
+// Функция логирования
 client.logModeration = async (guildId, action, target, moderator, reason, details = {}) => {
     const logChannelId = process.env.LOG_CHANNEL_ID;
-    if (!logChannelId) {
-        console.warn('⚠️ LOG_CHANNEL_ID не указан в .env');
-        return;
-    }
+    if (!logChannelId) return;
     
     try {
         const { EmbedBuilder } = require('discord.js');
         const guild = await client.guilds.fetch(guildId);
-        if (!guild) return;
-        
         const logChannel = await guild.channels.fetch(logChannelId);
         if (!logChannel) return;
         
         const embed = new EmbedBuilder()
             .setColor('#FF0000')
             .setTitle(`🔨 Действие модерации: ${action}`)
-            .setThumbnail(target.displayAvatarURL ? target.displayAvatarURL() : target.avatarURL ? target.avatarURL() : null)
+            .setThumbnail(target.displayAvatarURL())
             .setDescription(`**Модератор:** ${moderator.tag} (${moderator.id})\n**Пользователь:** ${target.tag} (${target.id})`)
-            .addFields(
-                { name: '📝 Причина', value: reason || 'Не указана', inline: false }
-            )
+            .addFields({ name: '📝 Причина', value: reason || 'Не указана' })
             .setTimestamp()
-            .setFooter({ text: `ID: ${target.id}`, iconURL: client.user.displayAvatarURL() });
+            .setFooter({ text: `ID: ${target.id}` });
         
         if (details.extra) {
-            embed.addFields({ name: '📌 Дополнительно', value: details.extra, inline: false });
+            embed.addFields({ name: '📌 Дополнительно', value: details.extra });
         }
         
         await logChannel.send({ embeds: [embed] });
-        console.log(`📝 Лог записан: ${action} -> ${target.tag}`);
+        console.log(`📝 Лог: ${action} -> ${target.tag}`);
     } catch (error) {
         console.error('❌ Ошибка логирования:', error);
     }
@@ -185,21 +172,18 @@ process.on('uncaughtException', (error) => {
     console.error('❌ Непойманная ошибка:', error);
 });
 
-// Загрузка и запуск
+// Запуск
 console.log('🚀 Запуск бота...');
 const commands = loadCommands();
 loadEvents();
 
-// Регистрация команд после готовности
 client.once('ready', async () => {
     await registerCommands(commands);
 });
 
-// Экспорт для использования в других файлах
-module.exports = { client };
-
-// Запуск бота
 client.login(process.env.DISCORD_TOKEN).catch(error => {
-    console.error('❌ Ошибка входа в бота:', error);
+    console.error('❌ Ошибка входа:', error);
     process.exit(1);
 });
+
+module.exports = { client };
