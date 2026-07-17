@@ -1,6 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
+const responseGenerator = require('../ai/responses');
+const contextManager = require('../ai/contextManager');
+const filter = require('../ai/filter');
+const toggle = require('../commands/ai/toggle');
 
-// Простая анти-спам система
+// Анти-спам система
 const spamMap = new Map();
 const MAX_MESSAGES = 5;
 const TIME_WINDOW = 5000;
@@ -9,10 +13,46 @@ const MUTE_DURATION = 600000; // 10 минут
 module.exports = {
     name: 'messageCreate',
     async execute(message, client) {
+        // Игнорируем сообщения ботов
         if (message.author.bot) return;
         if (!message.guild) return;
         
-        // Анти-спам система
+        // Проверка на включенный ИИ
+        if (!toggle.isEnabled()) {
+            // Если ИИ выключен, используем только модерацию
+            await this.handleAntiSpam(message, client);
+            return;
+        }
+        
+        // 1. Сначала фильтрация сообщения
+        const filterResult = filter.filter(message);
+        
+        if (!filterResult.allowed) {
+            if (filterResult.action === 'delete') {
+                await message.delete();
+                await message.channel.send(`❌ ${filterResult.reason}`);
+            } else if (filterResult.action === 'warn') {
+                await message.channel.send(`⚠️ ${filterResult.reason}`);
+            }
+            return;
+        }
+        
+        // 2. Запоминаем пользователя
+        const userData = contextManager.rememberUser(message.author);
+        
+        // 3. Генерация ответа
+        let response = responseGenerator.generateResponse(message, message.author);
+        
+        // 4. Отправка ответа (с вероятностью 70%)
+        if (Math.random() < 0.7) {
+            await message.reply(response);
+        }
+        
+        // 5. Анти-спам система
+        await this.handleAntiSpam(message, client);
+    },
+    
+    async handleAntiSpam(message, client) {
         const userId = message.author.id;
         const now = Date.now();
         
@@ -44,7 +84,6 @@ module.exports = {
                         .setTimestamp();
                     
                     await message.channel.send({ embeds: [embed] });
-                    
                     spamMap.delete(userId);
                     
                     await client.logModeration(
