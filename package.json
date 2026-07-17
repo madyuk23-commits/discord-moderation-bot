@@ -1,7 +1,7 @@
 {
   "name": "discord-moderation-bot",
   "version": "1.0.0",
-  "description": "Discord бот с модерацией, логированием и розыгрышами (слэш-команды)",
+  "description": "Discord бот с модерацией, логированием, розыгрышами и ИИ-общением",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -18,9 +18,17 @@
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": "18.x"
+    "node": "20.x"
   },
-  "keywords": ["discord", "bot", "moderation", "giveaways", "slash-commands"],
+  "keywords": [
+    "discord",
+    "bot",
+    "moderation",
+    "giveaways",
+    "slash-commands",
+    "ai",
+    "dm"
+  ],
   "author": "Your Name",
   "license": "MIT"
 }
